@@ -79,6 +79,7 @@ jobs:
     - name: Apply customizations
       run: |
         cd project
+        source ../scripts/add_packages.sh "${{ matrix.VERSION }}"
         source ../scripts/custome_config.sh
 
     - name: Prepare dot config and feeds
@@ -94,12 +95,31 @@ jobs:
         EOL
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
+        # OpenAppFilter consists of a LuCI app, userspace daemon and kernel module.
+        for package in luci-app-oaf appfilter kmod-oaf; do
+          if ! grep -q "^CONFIG_PACKAGE_${package}=y$" friendlywrt/.config; then
+            echo "ERROR: OpenAppFilter package is not enabled: ${package}"
+            exit 1
+          fi
+        done
+
     - name: Download package
       run: |
         cd project/friendlywrt
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile OpenAppFilter packages
+      run: |
+        cd project/friendlywrt
+        for target in oaf open-app-filter luci-app-oaf; do
+          echo "Compiling OpenAppFilter target: package/${target}/compile"
+          if ! make "package/${target}/compile" -j$(nproc) V=s; then
+            echo "::warning::parallel package build failed, retrying ${target} with one job"
+            make "package/${target}/compile" -j1 V=s
+          fi
+        done
 
     - name: Compile friendlyWrt
       id: compile
@@ -330,7 +350,12 @@ jobs:
         ./build.sh uboot
         ./build.sh kernel
 
-        ## If you want to compile a driver from source, here is an example
+        # The final images use this platform kernel rather than the temporary
+        # kernel from the shared FriendlyWrt rootfs build. Rebuild oaf.ko here
+        # so it matches the exact kernel ABI used by each SoC image.
+        bash ../scripts/3rd/add_openappfilter.sh
+
+        ## If you want to compile another driver from source, here is an example
         # case ${{ matrix.CPU }} in
         # rk3568)
         #     ../scripts/3rd/add_r8125.sh

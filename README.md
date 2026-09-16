@@ -13,6 +13,54 @@
 - 首次安装：先将 XYZ.img.gz 写入 SD 卡并启动系统，进入 FriendlyWrt 后台 → "系统" → "eMMC 刷机助手"，上传固件直接刷入（无需解压）。完成后弹出 SD 卡，设备会自动重启并从 eMMC 启动。
 - 小版本升级（如 25.12.2 → 25.12.3）：在 "eMMC 刷机助手" 中刷入 images-XXYYZZ.tgz，可选择保留数据，但兼容性需自行评估。
 - 大版本升级（如 24.10 → 25.12）：建议先[备份配置](https://openwrt.org/docs/guide-user/troubleshooting/backup_restore)，然后使用 XYZ.img.gz 全量安装，以避免兼容性问题。
+### 第三方软件包：OpenAppFilter
+当前构建会从以下仓库按固定标签加入 OpenAppFilter：
+
+```text
+https://github.com/destan19/OpenAppFilter.git
+Tag: v7.0.1
+Commit: b88fcb082597486a816187ec1e02812082161d5e
+```
+
+该仓库属于多软件包源码集合，整体克隆到 `friendlywrt/package/OpenAppFilter`，包含：
+
+- `luci-app-oaf`：LuCI 管理界面
+- `appfilter`：用户空间服务
+- `kmod-oaf`：内核模块
+
+普通版和 Docker 版均通过以下配置将其内置到固件：
+
+```text
+CONFIG_PACKAGE_luci-app-oaf=y
+CONFIG_PACKAGE_appfilter=y
+CONFIG_PACKAGE_kmod-oaf=y
+```
+
+完整固件编译会自动包含 OpenAppFilter。单独调试软件包时，可在 FriendlyWrt 源码目录执行：
+
+```bash
+make package/oaf/compile -j$(nproc) V=s
+make package/open-app-filter/compile -j$(nproc) V=s
+make package/luci-app-oaf/compile -j$(nproc) V=s
+```
+
+由于本项目的 FriendlyWrt rootfs 会被多个 SoC 共用，而最终镜像会替换为各平台单独编译的 FriendlyELEC 内核模块，仅在 FriendlyWrt 源码树中编译 `kmod-oaf` 不能保证最终模块 ABI 匹配。工作流会在每个平台内核编译完成后再次运行：
+
+```bash
+bash ../scripts/3rd/add_openappfilter.sh
+```
+
+该脚本实质上使用以下方式针对最终内核重新编译并安装 `oaf.ko`：
+
+```bash
+make -C kernel \
+  ARCH=arm64 \
+  CROSS_COMPILE=aarch64-linux-gnu- \
+  M="$(pwd)/openappfilter-kmod/oaf/src" \
+  modules
+```
+
+源码与 rootfs 配置集成脚本位于 `scripts/add_packages.sh`；平台内核模块集成脚本位于 `scripts/3rd/add_openappfilter.sh`。GitHub Actions 会校验三个包已启用，并为每个 CPU 平台重新生成匹配内核的 `oaf.ko`。
 ### 更新说明
 * 2026/08/07
     *  增加 NanoPi-R28S 支持

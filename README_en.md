@@ -13,6 +13,36 @@
 - First-time installation: Write XYZ.img.gz to an SD card and boot the system. Go to the FriendlyWrt admin panel → "System" → "eMMC Tools" and upload the file to flash it directly (no need to decompress). When it finishes, eject the SD card and the device will automatically reboot from eMMC.
 - Minor version upgrade (e.g., 25.12.2 → 25.12.3): Flash images-XXYYZZ.tgz via the "eMMC Tools". You may choose to keep existing data, but compatibility should be evaluated on your own.
 - Major version upgrade (e.g., 24.10 → 25.12): It is recommended to [back up your configuration](https://openwrt.org/docs/guide-user/troubleshooting/backup_restore) first, then perform a full installation using XYZ.img.gz to avoid compatibility issues.
+### Third-party package: OpenAppFilter
+The build adds OpenAppFilter from the following repository using a pinned tag and commit:
+
+```text
+https://github.com/destan19/OpenAppFilter.git
+Tag: v7.0.1
+Commit: b88fcb082597486a816187ec1e02812082161d5e
+```
+
+This repository is a multi-package source collection cloned into `friendlywrt/package/OpenAppFilter`. It contains:
+
+- `luci-app-oaf`: LuCI management UI
+- `appfilter`: userspace service
+- `kmod-oaf`: kernel module
+
+All three packages are built into both normal and Docker images. To compile them separately from the FriendlyWrt source directory, run:
+
+```bash
+make package/oaf/compile -j$(nproc) V=s
+make package/open-app-filter/compile -j$(nproc) V=s
+make package/luci-app-oaf/compile -j$(nproc) V=s
+```
+
+The rootfs is shared by multiple SoCs, while each final image replaces its kernel modules with modules built from the platform-specific FriendlyELEC kernel. GitHub Actions therefore runs the following script after every platform kernel build so that `oaf.ko` matches the final kernel ABI:
+
+```bash
+bash ../scripts/3rd/add_openappfilter.sh
+```
+
+Source and rootfs configuration are handled by `scripts/add_packages.sh`; platform kernel-module integration is handled by `scripts/3rd/add_openappfilter.sh`.
 ### Changelog
 * 2026/08/07
     *  Added support for NanoPi-R28S
