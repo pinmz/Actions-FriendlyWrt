@@ -13,6 +13,24 @@
 - 首次安装：先将 XYZ.img.gz 写入 SD 卡并启动系统，进入 FriendlyWrt 后台 → "系统" → "eMMC 刷机助手"，上传固件直接刷入（无需解压）。完成后弹出 SD 卡，设备会自动重启并从 eMMC 启动。
 - 小版本升级（如 25.12.2 → 25.12.3）：在 "eMMC 刷机助手" 中刷入 images-XXYYZZ.tgz，可选择保留数据，但兼容性需自行评估。
 - 大版本升级（如 24.10 → 25.12）：建议先[备份配置](https://openwrt.org/docs/guide-user/troubleshooting/backup_restore)，然后使用 XYZ.img.gz 全量安装，以避免兼容性问题。
+### 本地主机单目标编译
+根目录的 `cc_mybuild.sh` 用于在 x86_64 Linux 主机上编译单一组合，不会展开 GitHub Actions 的完整矩阵。先修改脚本开头的变量：
+
+```bash
+VERSION="25.12"
+SET="docker"
+CPU="rk3328"
+JOBS="$(nproc)"
+```
+
+准备好与 GitHub Actions 相同的 FriendlyARM/Ubuntu 编译依赖后执行：
+
+```bash
+bash cc_mybuild.sh
+```
+
+脚本会分别建立 RootFS 和目标平台镜像工作区，编译 OpenAppFilter，并在 `artifact/<版本>-<类型>-<CPU>/` 下生成 `.img.gz` 和 `images-*.tgz`。中断后再次执行会复用 `.local-build/` 中的源码和编译缓存；如需完全重新同步源码，可删除对应组合的工作目录。
+
 ### 第三方软件包：OpenAppFilter
 当前构建会从以下仓库按固定标签加入 OpenAppFilter：
 

@@ -3,3 +3,5 @@
 ._.DS_Store
 ._*
 .idea
+.local-build/
+artifact/

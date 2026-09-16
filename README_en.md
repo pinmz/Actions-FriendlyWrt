@@ -13,6 +13,24 @@
 - First-time installation: Write XYZ.img.gz to an SD card and boot the system. Go to the FriendlyWrt admin panel → "System" → "eMMC Tools" and upload the file to flash it directly (no need to decompress). When it finishes, eject the SD card and the device will automatically reboot from eMMC.
 - Minor version upgrade (e.g., 25.12.2 → 25.12.3): Flash images-XXYYZZ.tgz via the "eMMC Tools". You may choose to keep existing data, but compatibility should be evaluated on your own.
 - Major version upgrade (e.g., 24.10 → 25.12): It is recommended to [back up your configuration](https://openwrt.org/docs/guide-user/troubleshooting/backup_restore) first, then perform a full installation using XYZ.img.gz to avoid compatibility issues.
+### Local single-target build
+The root-level `cc_mybuild.sh` builds one combination on an x86_64 Linux host instead of expanding the complete GitHub Actions matrix. Edit the variables at the top of the script:
+
+```bash
+VERSION="25.12"
+SET="docker"
+CPU="rk3328"
+JOBS="$(nproc)"
+```
+
+After installing the same FriendlyARM/Ubuntu build dependencies used by GitHub Actions, run:
+
+```bash
+bash cc_mybuild.sh
+```
+
+The script creates separate rootfs and target-image workspaces, builds OpenAppFilter, and writes the `.img.gz` and `images-*.tgz` files under `artifact/<version>-<set>-<cpu>/`. A retry reuses sources and build caches under `.local-build/`; remove the matching workspace to force a clean source sync.
+
 ### Third-party package: OpenAppFilter
 The build adds OpenAppFilter from the following repository using a pinned tag and commit:
 
