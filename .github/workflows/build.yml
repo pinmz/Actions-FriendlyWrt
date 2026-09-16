@@ -110,22 +110,14 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile OpenAppFilter packages
-      run: |
-        cd project/friendlywrt
-        for target in oaf open-app-filter luci-app-oaf; do
-          echo "Compiling OpenAppFilter target: package/${target}/compile"
-          if ! make "package/${target}/compile" -j$(nproc) V=s; then
-            echo "::warning::parallel package build failed, retrying ${target} with one job"
-            make "package/${target}/compile" -j1 V=s
-          fi
-        done
-
     - name: Compile friendlyWrt
       id: compile
       continue-on-error: true
       run: |
         cd project/friendlywrt
+        # The top-level build must run before any package-only build on a clean
+        # tree because it prepares staging_dir/host tools such as openssl and sed.
+        # OpenAppFilter is selected in .config and is compiled automatically.
         if ! make -j$(nproc); then
           echo "::warning::parallel build failed, retrying with V=s"
           make -j1 V=s

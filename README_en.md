@@ -28,13 +28,16 @@ This repository is a multi-package source collection cloned into `friendlywrt/pa
 - `appfilter`: userspace service
 - `kmod-oaf`: kernel module
 
-All three packages are built into both normal and Docker images. To compile them separately from the FriendlyWrt source directory, run:
+All three packages are built into both normal and Docker images by the normal top-level `make`. To compile them separately for debugging, first ensure that the host tools and toolchain have already been built. From a clean FriendlyWrt source tree, run:
 
 ```bash
+make tools/install toolchain/install -j$(nproc)
 make package/oaf/compile -j$(nproc) V=s
 make package/open-app-filter/compile -j$(nproc) V=s
 make package/luci-app-oaf/compile -j$(nproc) V=s
 ```
+
+Running a package-only target before preparing the host tools can fail because files such as `staging_dir/host/bin/openssl` and `staging_dir/host/bin/sed` do not exist yet.
 
 The rootfs is shared by multiple SoCs, while each final image replaces its kernel modules with modules built from the platform-specific FriendlyELEC kernel. GitHub Actions therefore runs the following script after every platform kernel build so that `oaf.ko` matches the final kernel ABI:
 

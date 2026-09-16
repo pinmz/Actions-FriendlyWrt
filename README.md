@@ -39,6 +39,7 @@ CONFIG_PACKAGE_kmod-oaf=y
 完整固件编译会自动包含 OpenAppFilter。单独调试软件包时，可在 FriendlyWrt 源码目录执行：
 
 ```bash
+make tools/install toolchain/install -j$(nproc)
 make package/oaf/compile -j$(nproc) V=s
 make package/open-app-filter/compile -j$(nproc) V=s
 make package/luci-app-oaf/compile -j$(nproc) V=s
