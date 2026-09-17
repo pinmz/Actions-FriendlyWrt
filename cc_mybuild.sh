@@ -121,19 +121,30 @@ validate_selection() {
 check_host() {
     [ "$(uname -s)" = "Linux" ] || die "local build requires Linux; on Windows use Ubuntu under WSL2/VM or a Linux host"
 
+    # GNU tar configure and other OpenWrt build tools reject a root build.
+    # Image creation will request sudo only for the steps that need privileges.
+    [ "${EUID}" -ne 0 ] || die "do not run this build as root; use an unprivileged Linux user with sudo access (check with: id -u). If the workspace was created by root, change its ownership before retrying."
+
     case "$(uname -m)" in
         x86_64|amd64) ;;
         *) die "this local build wrapper currently supports only an x86_64 Linux host; current host is $(uname -m)" ;;
     esac
 
     local commands=(
-        awk bash bzip2 find git grep gzip ldd make nproc patch python3 realpath
+        awk bash bzip2 find git grep gzip install ldd make nproc patch python3 realpath
         rsync sed tar time unzip wget xz
     )
     local command_name
     for command_name in "${commands[@]}"; do
         require_command "${command_name}"
     done
+
+    # repo init needs the build user's Git identity in both source workspaces.
+    # Check outside this repository so its local Git config cannot mask a
+    # missing global/system identity in the newly created repo workspaces.
+    if ! (cd / && git var GIT_COMMITTER_IDENT >/dev/null 2>&1); then
+        die "Git committer identity is not configured for the current user; run: git config --global user.name 'Your Name' and git config --global user.email 'you@example.com'"
+    fi
 
     local helper_files=(
         "scripts/add_packages.sh"
@@ -273,16 +284,37 @@ package_rootfs() {
         [ -d "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}" ] || \
             die "package output not found: ${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}"
 
-        tar czf "${ROOTFS_TAR}" \
-            "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}" \
-            "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}"
-
         local pm_bin=""
         [ -f "${FRIENDLYWRT_SRC}/staging_dir/host/bin/apk" ] && \
             pm_bin="${FRIENDLYWRT_SRC}/staging_dir/host/bin/apk"
         [ -f "${FRIENDLYWRT_SRC}/staging_dir/host/bin/opkg" ] && \
             pm_bin="${FRIENDLYWRT_SRC}/staging_dir/host/bin/opkg"
         [ -n "${pm_bin}" ] || die "neither apk nor opkg was found under ${FRIENDLYWRT_SRC}/staging_dir/host/bin"
+
+        local rootfs_items=(
+            "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}"
+            "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}"
+        )
+
+        # OpenWrt 25+ signs the locally generated packages.adb with this build's
+        # private key. Keep the matching public key under a unique filename so
+        # the final image trusts the local repository without replacing any
+        # upstream distribution keys already present in /etc/apk/keys.
+        if [ "$(basename "${pm_bin}")" = "apk" ]; then
+            local apk_public_key="${FRIENDLYWRT_SRC}/public-key.pem"
+            local apk_keys_dir="${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}/etc/apk/keys"
+
+            [ -s "${apk_public_key}" ] || \
+                die "APK public key not found or empty: ${apk_public_key}"
+            mkdir -p "${apk_keys_dir}"
+            install -m 0644 \
+                "${apk_public_key}" \
+                "${apk_keys_dir}/friendlywrt-local.pem"
+            rootfs_items+=("${apk_public_key}")
+            log "Installed the local APK repository key into the rootfs"
+        fi
+
+        tar czf "${ROOTFS_TAR}" "${rootfs_items[@]}"
 
         log "Using host package manager: ${pm_bin}"
         tar czf "${HOST_PM_TAR}" "${pm_bin}"
