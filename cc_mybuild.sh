@@ -250,7 +250,7 @@ EOF
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
         local package
-        for package in luci-app-oaf appfilter kmod-oaf kmod-sound-core; do
+        for package in luci-app-oaf appfilter kmod-oaf friendlywrt-sound-core-compat; do
             grep -q "^CONFIG_PACKAGE_${package}=y$" friendlywrt/.config || \
                 die "required package is not enabled: ${package}"
         done
@@ -288,6 +288,8 @@ package_rootfs() {
             die "rootfs output not found: ${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}"
         [ -d "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}" ] || \
             die "package output not found: ${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}"
+        [ -f "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}/usr/share/friendlywrt/sound-core-compat" ] || \
+            die "sound-core compatibility provider was not installed into the rootfs"
 
         local pm_bin=""
         [ -f "${FRIENDLYWRT_SRC}/staging_dir/host/bin/apk" ] && \

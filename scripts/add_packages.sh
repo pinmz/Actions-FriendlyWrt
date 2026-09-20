@@ -52,12 +52,72 @@ EOF
 cp "configs/rockchip/${CONFIG_FRAGMENT}" \
    "configs/rockchip-docker/${CONFIG_FRAGMENT}"
 
-# Include the ALSA core module (and its kmod-input-core dependency) in both
-# rootfs variants. Keep this independent from the OpenAppFilter fragment.
-cat > configs/rockchip/98-sound-core <<'EOF'
-# ALSA sound core
-CONFIG_PACKAGE_kmod-sound-core=y
-EOF
-cp configs/rockchip/98-sound-core configs/rockchip-docker/98-sound-core
+# FriendlyELEC's final RK3328 platform kernel has CONFIG_SOUND=y and
+# CONFIG_SND=y built in, while the FriendlyWrt rootfs package phase uses a
+# different kernel ABI.  Do not install the rootfs phase's real
+# kmod-sound-core APK: it cannot be loaded by the final platform kernel.
+#
+# Instead, install a small compatibility package which permanently records the
+# kmod-sound-core capability in the firmware APK database.  This survives a
+# sysupgrade because it is part of every newly built rootfs, unlike an
+# `apk add --virtual` entry created manually on a running device.
+readonly SOUND_COMPAT_DIR="friendlywrt/package/friendlywrt-sound-core-compat"
+mkdir -p "${SOUND_COMPAT_DIR}/files"
 
-echo "OpenAppFilter and kmod-sound-core build configurations are ready."
+cat > "${SOUND_COMPAT_DIR}/Makefile" <<'EOF'
+include $(TOPDIR)/rules.mk
+
+PKG_NAME:=friendlywrt-sound-core-compat
+PKG_VERSION:=1.0.0
+PKG_RELEASE:=1
+PKG_LICENSE:=MIT
+PKGARCH:=all
+
+include $(INCLUDE_DIR)/package.mk
+
+define Package/friendlywrt-sound-core-compat
+  SECTION:=base
+  CATEGORY:=Base system
+  TITLE:=FriendlyWrt built-in sound-core compatibility provider
+  # Keep the provider name unprefixed for both 24.10 (opkg) and 25.12 (apk).
+  PROVIDES:=kmod-sound-core
+  DEFAULT_VARIANT:=1
+endef
+
+define Package/friendlywrt-sound-core-compat/description
+ Provides the kmod-sound-core package capability when the ALSA sound core is
+ built into the FriendlyELEC platform kernel. This package contains no kernel
+ module and must only be used with a platform kernel built with CONFIG_SND=y.
+endef
+
+define Build/Compile
+endef
+
+define Package/friendlywrt-sound-core-compat/install
+	$(INSTALL_DIR) $(1)/usr/share/friendlywrt
+	$(INSTALL_DATA) ./files/sound-core-compat \
+		$(1)/usr/share/friendlywrt/sound-core-compat
+endef
+
+$(eval $(call BuildPackage,friendlywrt-sound-core-compat))
+EOF
+
+cat > "${SOUND_COMPAT_DIR}/files/sound-core-compat" <<'EOF'
+The FriendlyELEC platform kernel provides ALSA sound core through CONFIG_SND=y.
+This package is APK metadata compatibility only and contains no kernel module.
+EOF
+
+cat > configs/rockchip/98-sound-core-compat <<'EOF'
+# The final FriendlyELEC platform kernel has sound core built in.
+CONFIG_PACKAGE_friendlywrt-sound-core-compat=y
+EOF
+cp configs/rockchip/98-sound-core-compat \
+   configs/rockchip-docker/98-sound-core-compat
+
+# Remove the obsolete fragment created by an earlier version of this script.
+# Leaving it behind would select the incompatible rootfs-kernel APK again when
+# an existing local workspace is reused.
+rm -f configs/rockchip/98-sound-core \
+      configs/rockchip-docker/98-sound-core
+
+echo "OpenAppFilter and built-in sound-core compatibility configurations are ready."
