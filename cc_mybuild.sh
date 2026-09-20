@@ -245,9 +245,9 @@ EOF
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
         local package
-        for package in luci-app-oaf appfilter kmod-oaf; do
+        for package in luci-app-oaf appfilter kmod-oaf kmod-sound-core; do
             grep -q "^CONFIG_PACKAGE_${package}=y$" friendlywrt/.config || \
-                die "OpenAppFilter package is not enabled: ${package}"
+                die "required package is not enabled: ${package}"
         done
     )
 }

@@ -52,4 +52,12 @@ EOF
 cp "configs/rockchip/${CONFIG_FRAGMENT}" \
    "configs/rockchip-docker/${CONFIG_FRAGMENT}"
 
-echo "OpenAppFilter source and build configuration are ready."
+# Include the ALSA core module (and its kmod-input-core dependency) in both
+# rootfs variants. Keep this independent from the OpenAppFilter fragment.
+cat > configs/rockchip/98-sound-core <<'EOF'
+# ALSA sound core
+CONFIG_PACKAGE_kmod-sound-core=y
+EOF
+cp configs/rockchip/98-sound-core configs/rockchip-docker/98-sound-core
+
+echo "OpenAppFilter and kmod-sound-core build configurations are ready."
