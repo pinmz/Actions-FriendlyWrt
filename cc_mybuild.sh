@@ -242,6 +242,11 @@ EOF
 
     (
         cd "${ROOTFS_WORK_DIR}"
+
+        # mk-friendlywrt.sh reuses friendlywrt/.config when it already exists and
+        # then skips the config fragments. Remove the generated config so changes
+        # made by scripts/add_packages.sh are applied on every local retry.
+        rm -f friendlywrt/.config friendlywrt/.config.old
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
         local package

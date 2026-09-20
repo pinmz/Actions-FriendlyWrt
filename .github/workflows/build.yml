@@ -93,6 +93,10 @@ jobs:
         TARGET_IMAGE_DIRNAME=${DIST_DIR}
         TARGET_FRIENDLYWRT_CONFIG=${CONFIG}
         EOL
+
+        # Do not reuse a generated .config: mk-friendlywrt.sh otherwise skips
+        # config fragments added or changed earlier in this job.
+        rm -f friendlywrt/.config friendlywrt/.config.old
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
         # OpenAppFilter consists of a LuCI app, userspace daemon and kernel module.
