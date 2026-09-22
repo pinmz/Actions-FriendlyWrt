@@ -242,17 +242,12 @@ EOF
 
     (
         cd "${ROOTFS_WORK_DIR}"
-
-        # mk-friendlywrt.sh reuses friendlywrt/.config when it already exists and
-        # then skips the config fragments. Remove the generated config so changes
-        # made by scripts/add_packages.sh are applied on every local retry.
-        rm -f friendlywrt/.config friendlywrt/.config.old
         DEBUG_DOT_CONFIG=1 ./build.sh friendlywrt
 
         local package
-        for package in luci-app-oaf appfilter kmod-oaf friendlywrt-sound-core-compat; do
+        for package in luci-app-oaf appfilter kmod-oaf; do
             grep -q "^CONFIG_PACKAGE_${package}=y$" friendlywrt/.config || \
-                die "required package is not enabled: ${package}"
+                die "OpenAppFilter package is not enabled: ${package}"
         done
     )
 }
@@ -288,8 +283,6 @@ package_rootfs() {
             die "rootfs output not found: ${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}"
         [ -d "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}" ] || \
             die "package output not found: ${FRIENDLYWRT_SRC}/${FRIENDLYWRT_PACKAGE_DIR}"
-        [ -f "${FRIENDLYWRT_SRC}/${FRIENDLYWRT_ROOTFS}/usr/share/friendlywrt/sound-core-compat" ] || \
-            die "sound-core compatibility provider was not installed into the rootfs"
 
         local pm_bin=""
         [ -f "${FRIENDLYWRT_SRC}/staging_dir/host/bin/apk" ] && \
